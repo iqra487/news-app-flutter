@@ -1,6 +1,9 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:news_app/models/articles.dart';
 import 'package:news_app/utils/constants.dart';
+import 'package:news_app/services/fetch_articles_services.dart';
+import 'package:timeago/timeago.dart' as timeago;
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -18,19 +21,11 @@ class _HomePageState extends State<HomePage> {
     });
   }
 
-  final List<Map<String, String>> articles = [
-    {
-      'image': 'assets/images/splash_pic.jpg',
-      'headline': 'Breaking News: Flutter 3.0 Released!',
-      'source': 'TechCrunch',
-    },
-    {
-      'image': 'assets/images/splash_pic.jpg',
-      'headline': 'New Features in Flutter 3.0',
-      'source': 'The Verge',
-    },
-    // Add more articles here
-  ];
+  List<Articles> articles = [];
+  bool isLoading = true;
+  String error = "";
+  final NewsService newsService = NewsService();
+
   final List<String> newsCategories = [
     'Technology',
     'Sports',
@@ -45,6 +40,24 @@ class _HomePageState extends State<HomePage> {
   ];
 
   final TextEditingController _searchController = TextEditingController();
+  @override
+  void initState() {
+    super.initState();
+    loadArticles();
+  }
+
+  void loadArticles() async {
+    try {
+      final fetchArticles = await newsService.fetchArticles();
+      setState(() {
+        articles = fetchArticles;
+        isLoading = false;
+      });
+    } catch (e) {
+      isLoading = false;
+      error = "Error Fetching Articles $e";
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -106,7 +119,7 @@ class _HomePageState extends State<HomePage> {
               height: height * 0.02,
             ),
             Container(
-              height: height * 0.35, // Adjust height according to your design
+              height: height * 0.3, // Adjust height according to your design
               child: GridView.builder(
                 scrollDirection: Axis.horizontal,
                 gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
@@ -123,6 +136,7 @@ class _HomePageState extends State<HomePage> {
                   return GestureDetector(
                     onTap: () {
                       // Add your onTap functionality here
+                      print('Selected article: ${article.title}');
                     },
                     child: Card(
                       elevation: 5.0,
@@ -137,8 +151,8 @@ class _HomePageState extends State<HomePage> {
                               borderRadius: const BorderRadius.vertical(
                                 top: Radius.circular(10.0),
                               ),
-                              child: Image.asset(
-                                article['image']!,
+                              child: Image.network(
+                                article.urlToImage ?? '',
                                 fit: BoxFit.cover,
                                 width: double.infinity,
                               ),
@@ -150,19 +164,29 @@ class _HomePageState extends State<HomePage> {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: <Widget>[
                                 Text(
-                                  article['headline']!,
+                                  article.title ?? 'No Title',
                                   style: const TextStyle(
-                                    fontSize: 16.0,
+                                    fontSize: 14.0,
                                     fontWeight: FontWeight.bold,
                                   ),
                                 ),
+                                SizedBox(height: height * 0.0044),
+                                Text(
+                                  article.source?.name ?? 'Unknown Source',
+                                  style: const TextStyle(
+                                      fontSize: 13.0,
+                                      color: Color.fromARGB(255, 111, 111, 111),
+                                      fontWeight: FontWeight.bold),
+                                ),
                                 const SizedBox(height: 4.0),
                                 Text(
-                                  'Source: ${article['source']}',
+                                  timeago.format(DateTime.parse(
+                                    article.publishedAt!,
+                                  )),
                                   style: const TextStyle(
-                                    fontSize: 12.0,
-                                    color: Colors.grey,
-                                  ),
+                                      fontSize: 12.0,
+                                      color: colorOrange,
+                                      fontWeight: FontWeight.bold),
                                 ),
                               ],
                             ),
@@ -213,6 +237,48 @@ class _HomePageState extends State<HomePage> {
             ),
             SizedBox(
               height: height * 0.02,
+            ),
+            Expanded(
+              child: ListView.builder(
+                itemCount: articles.length,
+                itemBuilder: (context, index) {
+                  final article = articles[index];
+                  return GestureDetector(
+                    onTap: () {
+                      // Handle article selection
+                      print('Selected article: ${articles[index]}');
+                    },
+                    child: ListTile(
+                      leading: SizedBox(
+                          width: 80.0, // Fixed width for the image
+                          height: 100.0,
+                          child: Image.network(article.urlToImage ?? '')),
+                      title: Text(
+                        article.title!,
+                        style: const TextStyle(
+                            fontSize: 14, fontWeight: FontWeight.bold),
+                      ),
+                      subtitle: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            article.source!.name!,
+                            style: const TextStyle(
+                              fontSize: 12,
+                            ),
+                          ),
+                          Text(
+                            timeago.format(DateTime.parse(
+                              article.publishedAt!,
+                            )),
+                            style: const TextStyle(fontSize: 12),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+              ),
             ),
           ],
         ),
